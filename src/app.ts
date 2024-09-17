@@ -1,8 +1,8 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 
-import { ProductRoutes } from "./app/module/products/products.route";
-import { OrderRoutes } from "./app/module/orders/orders.route";
+import { ProductRoutes } from "./app/module/product/products.route";
+//import { OrderRoutes } from "./app/module/orders/orders.route";
 
 const app = express();
 
@@ -15,7 +15,7 @@ app.use(cors());
 app.use("/api/products", ProductRoutes);
 
 // order route
-app.use("/api/orders", OrderRoutes);
+//app.use("/api/orders", OrderRoutes);
 
 //const port = 5000
 app.get("/", (req: Request, res: Response) => {
