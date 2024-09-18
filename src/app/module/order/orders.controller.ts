@@ -1,57 +1,53 @@
 import { Request, Response } from 'express';
 import { OrdersServices } from './orders.service';
-import { Orders } from './orders.model';
 import { Products } from '../product/products.model';
 import OrderValidationSchema from './orders.validation';
 
 const createOrder = async (req: Request, res: Response) => {
   try {
-    const orderData = req.body;
+    //data validation using zod
+    const zodParsedOrderedData = OrderValidationSchema.parse(req.body);
+    const result = await OrdersServices.createAnOrderDB(zodParsedOrderedData);
 
-    // validating order data using zod
-    const validatedOrderData = OrderValidationSchema.parse(orderData);
-    const { productId, quantity: orderQuantity } = validatedOrderData;
-    const product = await OrdersServices.createAnOrderDB(productId);
+    //find the ordered product
+    const orderedProduct = await Products.findOne({
+      _id: zodParsedOrderedData.productId,
+    });
 
-    if (product?.inventory.quantity < orderQuantity) {
-      res.status(400).json({
-        success: false,
-        message: 'Insufficient quantity available in inventory',
-      });
-    } else {
-      //
-      if (product?.inventory.quantity !== 0) {
-        const order = await Orders.create(validatedOrderData);
-        //updateing the quantity of the product and stock status
-        const updateProductQuantity = await Products.findByIdAndUpdate(
-          { _id: product?._id },
-          { $inc: { 'inventory.quantity': -orderQuantity } }, //Deducting from the inventory
-          { new: true },
-        );
-        // after order if inventory = 0 , then instock = false
-        if (updateProductQuantity?.inventory.quantity === 0) {
-          await Products.findByIdAndUpdate(
-            { _id: product?._id },
-            { $set: { 'inventory.inStock': false } }, //when the inventory stock is 0 the stock will be set to false
-            { new: true },
-          );
-        }
-        res.status(200).json({
-          success: true,
-          message: 'Order created successfully!',
-          data: { order },
-        });
-      } else {
-        const updateProductInventory = await Products.findByIdAndUpdate(
-          { _id: product?._id },
-          { $set: { 'inventory.inStock': false } }, //when the inventory is empty the stock will be set to false
-          { new: true },
-        );
-        res.status(400).json({
+    if (orderedProduct !== null) {
+      if (orderedProduct.inventory.quantity < zodParsedOrderedData.quantity) {
+        return res.status(400).json({
           success: false,
-          message: 'Insufficient quantity available in inventory',
+          message: 'Insufficient quantity in stock!',
         });
       }
+
+      if (result) {
+        //updating the ordered product quantity
+        const updatedQuantity = await Products.findByIdAndUpdate(
+          orderedProduct?._id,
+          {
+            'inventory.quantity':
+              orderedProduct.inventory.quantity - zodParsedOrderedData.quantity,
+          },
+          { new: true },
+        );
+        if (updatedQuantity !== null) {
+          //if the quantity became zero and change the inStock value
+          if (updatedQuantity.inventory.quantity === 0)
+            await Products.findByIdAndUpdate(
+              orderedProduct?._id,
+              { 'inventory.inStock': false },
+              { new: true },
+            );
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Ordered successfully !',
+        data: result,
+      });
     }
   } catch (err: any) {
     res.status(500).json({
@@ -69,7 +65,7 @@ const fetchOrder = async (req: Request, res: Response) => {
       typeof email === 'string' &&
       email !== 'undefined'
     ) {
-      // if the email is there we will fetch the order for that specific user
+      // if email matches, then will fetch the order for that specific user
       const result = await OrdersServices.fetchOrderByEmailDB(email);
 
       if (result.length === 0) {
@@ -85,7 +81,7 @@ const fetchOrder = async (req: Request, res: Response) => {
         });
       }
     } else {
-      // this part of the code will show all the orders in the collection
+      // get all orders
       const result = await OrdersServices.fetchAllOrderDB();
       res.status(200).json({
         success: true,

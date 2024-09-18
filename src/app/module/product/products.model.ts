@@ -4,21 +4,23 @@ import { TProduct, TVariant, TInventory } from './products.interface';
 const variantSchema = new Schema<TVariant>({
   type: {
     type: String,
-    required: true,
+    required: [true, 'Variant type is required.'],
   },
   value: {
     type: String,
-    required: true,
+    required: [true, 'Variant value is required.'],
   },
 });
 
 const inventorySchema = new Schema<TInventory>({
   quantity: {
     type: Number,
+    required: [true, 'Quatity is required.'],
     default: 0,
   },
   inStock: {
     type: Boolean,
+    required: [true, 'Instock is required.'],
     default: true,
   },
 });

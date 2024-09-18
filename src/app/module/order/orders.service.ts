@@ -1,22 +1,8 @@
-import { TProduct } from '../product/products.interface';
-import { Products } from '../product/products.model';
 import { Orders } from './orders.model';
-
-//creating order
-const createAnOrderDB = async (id: string) => {
-  const orderedProduct = (await Products.findOne({ _id: id })) as TProduct;
-  return orderedProduct;
-};
-
-//updating product quantity after creating a order
-const updateProductQuantity = async (id: string, quantity: number) => {
-  const updateProductInventory = await Products.findByIdAndUpdate(
-    { _id: id },
-    { $inc: { 'inventory.quantity': -quantity } },
-    { new: true },
-  );
-
-  return updateProductInventory;
+import { TOrder } from './orders.interface';
+const createAnOrderDB = async (orderData: TOrder) => {
+  const result = await Orders.create(orderData);
+  return result;
 };
 
 //fetching all orders
@@ -37,5 +23,4 @@ export const OrdersServices = {
   createAnOrderDB,
   fetchAllOrderDB,
   fetchOrderByEmailDB,
-  updateProductQuantity,
 };
