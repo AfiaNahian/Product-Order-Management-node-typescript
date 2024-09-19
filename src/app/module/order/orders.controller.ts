@@ -68,6 +68,7 @@ const createOrder = async (req: Request, res: Response) => {
 const getAllOrders = async (req: Request, res: Response) => {
   try {
     const { email } = req.query;
+    //get data for specific email
     if (email) {
       const orders = await OrderServices.getAllOrders(req.query);
 
@@ -79,7 +80,9 @@ const getAllOrders = async (req: Request, res: Response) => {
             : `Orders fetched successfully for user email!`,
         data: orders,
       });
-    } else {
+    }
+    // get all data
+    else {
       const orders = await OrderServices.getAllOrders();
 
       res.status(200).json({
