@@ -1,13 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from 'express';
-import { OrdersServices } from './orders.service';
-import { Products } from '../product/products.model';
+import { OrderServices } from './orders.service';
 import OrderValidationSchema from './orders.validation';
 
+import { Products } from '../product/products.model';
+
+//controller for making order
 const createOrder = async (req: Request, res: Response) => {
   try {
     //data validation using zod
     const zodParsedOrderedData = OrderValidationSchema.parse(req.body);
-    const result = await OrdersServices.createAnOrderDB(zodParsedOrderedData);
 
     //find the ordered product
     const orderedProduct = await Products.findOne({
@@ -22,6 +24,8 @@ const createOrder = async (req: Request, res: Response) => {
         });
       }
 
+      const result = await OrderServices.makeOrder(zodParsedOrderedData);
+
       if (result) {
         //updating the ordered product quantity
         const updatedQuantity = await Products.findByIdAndUpdate(
@@ -33,11 +37,13 @@ const createOrder = async (req: Request, res: Response) => {
           { new: true },
         );
         if (updatedQuantity !== null) {
-          //if the quantity became zero and change the inStock value
+          //check if the quantity became zero and change the inStock value
           if (updatedQuantity.inventory.quantity === 0)
             await Products.findByIdAndUpdate(
               orderedProduct?._id,
-              { 'inventory.inStock': false },
+              {
+                'inventory.inStock': false,
+              },
               { new: true },
             );
         }
@@ -52,53 +58,49 @@ const createOrder = async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({
       success: false,
-      message: err.message || 'Something went wrong',
-      error: err,
+      message: 'Could not make Order!',
+      error: err.message,
     });
   }
 };
-const fetchOrder = async (req: Request, res: Response) => {
+
+//controller for getting all the orders and get order by email
+const getAllOrders = async (req: Request, res: Response) => {
   try {
     const { email } = req.query;
-    if (
-      req.query.hasOwnProperty('email') &&
-      typeof email === 'string' &&
-      email !== 'undefined'
-    ) {
-      // if email matches, then will fetch the order for that specific user
-      const result = await OrdersServices.fetchOrderByEmailDB(email);
+    if (email) {
+      const orders = await OrderServices.getAllOrders(req.query);
 
-      if (result.length === 0) {
-        res.status(404).json({
-          success: false,
-          message: 'Order not found',
-        });
-      } else {
-        res.status(200).json({
-          success: true,
-          message: 'Orders fetched successfully for user email!',
-          data: result,
-        });
-      }
-    } else {
-      // get all orders
-      const result = await OrdersServices.fetchAllOrderDB();
       res.status(200).json({
-        success: true,
-        message: 'Orders fetched successfully!',
-        data: result,
+        success: orders.length === 0 ? false : true,
+        message:
+          orders.length === 0
+            ? `Orders not found`
+            : `Orders fetched successfully for user email!`,
+        data: orders,
+      });
+    } else {
+      const orders = await OrderServices.getAllOrders();
+
+      res.status(200).json({
+        success: orders.length === 0 ? false : true,
+        message:
+          orders.length === 0
+            ? `Orders not found`
+            : `Orders fetched successfully!`,
+        data: orders,
       });
     }
-  } catch (err: any) {
-    res.status(500).json({
+  } catch (error: any) {
+    res.status(400).json({
       success: false,
-      message: err.message || 'Something went wrong',
-      error: err,
+      message: `Something Went wrong`,
+      error: error,
     });
   }
 };
 
 export const OrderController = {
   createOrder,
-  fetchOrder,
+  getAllOrders,
 };
